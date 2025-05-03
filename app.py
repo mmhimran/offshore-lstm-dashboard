@@ -129,4 +129,3 @@ if uploaded_file:
             forecast_df.to_excel(towrite, index=False, sheet_name='Forecast')
             towrite.seek(0)
             st.download_button("📥 Download Forecast", towrite, file_name="Forecast_168_Steps.xlsx")
-update app.py with dual-mode dashboard
