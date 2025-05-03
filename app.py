@@ -8,12 +8,14 @@ mode = st.radio(
 
 uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=["csv", "xlsx"])
 
+import openpyxl  # Add this line if not already present
+
 if uploaded_file:
     if uploaded_file.name.endswith(".xlsx"):
-        import openpyxl
         df = pd.read_excel(uploaded_file, engine="openpyxl")
     else:
         df = pd.read_csv(uploaded_file)
+
 
     # Preprocessing
     df['Date'] = pd.to_datetime(df['Date'])
