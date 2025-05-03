@@ -1,23 +1,25 @@
-# === Imports ===
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import load_model
 import io
+import openpyxl  # Required for reading Excel files
 
-# === Title and Mode Selection ===
+# App title
 st.subheader("🛠️ Select Forecasting Mode")
+
+# Mode selection
 mode = st.radio(
     "Choose your desired mode:",
     ["Prediction and Comparison with Actual", "Forecasting Only"]
 )
 
-# === File Upload ===
+# File uploader
 uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=["csv", "xlsx"])
 
-# === File Handling ===
+# Process uploaded file
 if uploaded_file:
     if uploaded_file.name.endswith(".xlsx"):
         try:
@@ -28,37 +30,39 @@ if uploaded_file:
     else:
         df = pd.read_csv(uploaded_file)
 
-    # === Preprocessing ===
+    # Preprocessing
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values(by='Date').reset_index(drop=True)
     df.interpolate(method='linear', inplace=True)
     df.bfill(inplace=True)
 
+    # Display uploaded data
     st.subheader("📋 Uploaded Data")
     st.dataframe(df.tail())
 
-    # === Forecasting Setup ===
+    # Model setup
     features = ['Te03m', 'Te30m', 'Te50m']
     look_back = 504
     prediction_horizon = 168
-
     model = load_model("deep_lstm_checkpoint.keras")
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(df[features])
 
-    # === MODE: Prediction + Comparison ===
     if mode == "Prediction and Comparison with Actual":
         if len(df) < (look_back + prediction_horizon):
             st.error(f"❌ Need at least {look_back + prediction_horizon} rows for comparison mode.")
         else:
+            # Prepare inputs
             X_input = []
             for i in range(len(scaled_data) - look_back):
                 X_input.append(scaled_data[i:i+look_back])
             X_input = np.array(X_input)
 
+            # Predict
             prediction = model.predict(X_input)
             prediction = scaler.inverse_transform(prediction)
 
+            # Trim to last 168 for visual
             actual = df[features].iloc[look_back:].values
             dates = df['Date'].iloc[look_back:].reset_index(drop=True)
 
@@ -66,6 +70,7 @@ if uploaded_file:
             actual = actual[-prediction_horizon:]
             dates = dates[-prediction_horizon:]
 
+            # Plot prediction vs actual
             st.subheader("📊 Prediction vs Actual")
             fig, ax = plt.subplots(figsize=(15, 6))
             colors = ['red', 'green', 'blue']
@@ -81,6 +86,7 @@ if uploaded_file:
             ax.grid(True)
             st.pyplot(fig)
 
+            # Downloadable Excel
             result_df = pd.DataFrame({
                 'Date': dates,
                 'Actual_Te03m': actual[:, 0],
@@ -96,7 +102,6 @@ if uploaded_file:
             towrite.seek(0)
             st.download_button("📥 Download Comparison Results", towrite, file_name="Comparison_Result.xlsx")
 
-    # === MODE: Forecasting Only ===
     elif mode == "Forecasting Only":
         if len(df) < look_back:
             st.error(f"❌ Need at least {look_back} rows for forecasting.")
@@ -106,11 +111,12 @@ if uploaded_file:
 
             predictions = []
             current_input = X_input.copy()
-for _ in range(prediction_horizon):
-    pred = model.predict(current_input)[0][-1]
-    pred = pred.reshape(1, 1, -1)  # Ensure correct shape (1, 1, 3)
-    predictions.append(pred[0, 0])  # Append flattened prediction
-    current_input = np.append(current_input[:, 1:, :], pred, axis=1)
+
+            for _ in range(prediction_horizon):
+                pred = model.predict(current_input)[0][-1]
+                predictions.append(pred)
+                current_input = np.append(current_input[:, 1:, :], [[pred]], axis=1)
+
             predictions = scaler.inverse_transform(predictions)
             last_date = df['Date'].iloc[-1]
             future_dates = pd.date_range(start=last_date + pd.Timedelta(hours=1), periods=prediction_horizon, freq='H')
@@ -122,6 +128,7 @@ for _ in range(prediction_horizon):
                 'Pred_Te50m': predictions[:, 2],
             })
 
+            # Plot forecast
             st.subheader("📈 7-Day Forecast")
             fig, ax = plt.subplots(figsize=(15, 6))
             colors = ['red', 'green', 'blue']
@@ -135,6 +142,7 @@ for _ in range(prediction_horizon):
             ax.grid(True)
             st.pyplot(fig)
 
+            # Download forecast
             towrite = io.BytesIO()
             forecast_df.to_excel(towrite, index=False, sheet_name='Forecast')
             towrite.seek(0)
