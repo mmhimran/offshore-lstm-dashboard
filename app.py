@@ -9,9 +9,9 @@ mode = st.radio(
 uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=["csv", "xlsx"])
 
 if uploaded_file:
-    # Read file
-    if uploaded_file.name.endswith("xlsx"):
-        df = pd.read_excel(uploaded_file, engine='openpyxl')  # ✅ Fix: specify engine
+    if uploaded_file.name.endswith(".xlsx"):
+        import openpyxl  # <-- Explicitly import openpyxl
+        df = pd.read_excel(uploaded_file, engine="openpyxl")
     else:
         df = pd.read_csv(uploaded_file)
 
