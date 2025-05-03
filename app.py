@@ -106,14 +106,11 @@ if uploaded_file:
 
             predictions = []
             current_input = X_input.copy()
-
-            for _ in range(prediction_horizon):
+for _ in range(prediction_horizon):
     pred = model.predict(current_input)[0][-1]
-    pred = pred.reshape(1, 1, -1)  # Fix shape to (1, 1, 3)
-    predictions.append(pred[0, 0])  # Append the 1D array
+    pred = pred.reshape(1, 1, -1)  # Ensure correct shape (1, 1, 3)
+    predictions.append(pred[0, 0])  # Append flattened prediction
     current_input = np.append(current_input[:, 1:, :], pred, axis=1)
-
-
             predictions = scaler.inverse_transform(predictions)
             last_date = df['Date'].iloc[-1]
             future_dates = pd.date_range(start=last_date + pd.Timedelta(hours=1), periods=prediction_horizon, freq='H')
