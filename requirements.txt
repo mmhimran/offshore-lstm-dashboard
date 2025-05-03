@@ -5,3 +5,9 @@ matplotlib
 scikit-learn
 openpyxl
 tensorflow
+pandas
+numpy
+scikit-learn
+matplotlib
+openpyxl
+XlsxWriter
