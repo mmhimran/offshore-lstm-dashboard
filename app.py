@@ -1,25 +1,23 @@
+# Import required packages
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import io
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
-import io
-import openpyxl  # Required for reading Excel files
+import openpyxl  # Needed for reading .xlsx
 
-# App title
+# App title and mode selection
 st.subheader("🛠️ Select Forecasting Mode")
-
-# Mode selection
 mode = st.radio(
     "Choose your desired mode:",
     ["Prediction and Comparison with Actual", "Forecasting Only"]
 )
 
-# File uploader
+# File upload
 uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=["csv", "xlsx"])
 
-# Process uploaded file
 if uploaded_file:
     if uploaded_file.name.endswith(".xlsx"):
         try:
@@ -36,11 +34,9 @@ if uploaded_file:
     df.interpolate(method='linear', inplace=True)
     df.bfill(inplace=True)
 
-    # Display uploaded data
     st.subheader("📋 Uploaded Data")
     st.dataframe(df.tail())
 
-    # Model setup
     features = ['Te03m', 'Te30m', 'Te50m']
     look_back = 504
     prediction_horizon = 168
@@ -52,17 +48,14 @@ if uploaded_file:
         if len(df) < (look_back + prediction_horizon):
             st.error(f"❌ Need at least {look_back + prediction_horizon} rows for comparison mode.")
         else:
-            # Prepare inputs
             X_input = []
             for i in range(len(scaled_data) - look_back):
                 X_input.append(scaled_data[i:i+look_back])
             X_input = np.array(X_input)
 
-            # Predict
             prediction = model.predict(X_input)
             prediction = scaler.inverse_transform(prediction)
 
-            # Trim to last 168 for visual
             actual = df[features].iloc[look_back:].values
             dates = df['Date'].iloc[look_back:].reset_index(drop=True)
 
@@ -70,7 +63,7 @@ if uploaded_file:
             actual = actual[-prediction_horizon:]
             dates = dates[-prediction_horizon:]
 
-            # Plot prediction vs actual
+            # Plot
             st.subheader("📊 Prediction vs Actual")
             fig, ax = plt.subplots(figsize=(15, 6))
             colors = ['red', 'green', 'blue']
@@ -86,7 +79,7 @@ if uploaded_file:
             ax.grid(True)
             st.pyplot(fig)
 
-            # Downloadable Excel
+            # Excel download
             result_df = pd.DataFrame({
                 'Date': dates,
                 'Actual_Te03m': actual[:, 0],
@@ -106,17 +99,16 @@ if uploaded_file:
         if len(df) < look_back:
             st.error(f"❌ Need at least {look_back} rows for forecasting.")
         else:
-            X_input = scaled_data[-look_back:]
-            X_input = np.expand_dims(X_input, axis=0)
+            current_input = scaled_data[-look_back:]
+            current_input = np.expand_dims(current_input, axis=0)
 
             predictions = []
-            current_input = X_input.copy()
-
             for _ in range(prediction_horizon):
-                pred = model.predict(current_input)[0][-1]
+                pred = model.predict(current_input)[0]
                 predictions.append(pred)
-                current_input = np.append(current_input[:, 1:, :], [[pred]], axis=1)
+                current_input = np.append(current_input[:, 1:, :], [pred.reshape(1, -1)], axis=1)
 
+            predictions = np.array(predictions)
             predictions = scaler.inverse_transform(predictions)
             last_date = df['Date'].iloc[-1]
             future_dates = pd.date_range(start=last_date + pd.Timedelta(hours=1), periods=prediction_horizon, freq='H')
@@ -128,7 +120,6 @@ if uploaded_file:
                 'Pred_Te50m': predictions[:, 2],
             })
 
-            # Plot forecast
             st.subheader("📈 7-Day Forecast")
             fig, ax = plt.subplots(figsize=(15, 6))
             colors = ['red', 'green', 'blue']
@@ -142,7 +133,7 @@ if uploaded_file:
             ax.grid(True)
             st.pyplot(fig)
 
-            # Download forecast
+            # Excel download
             towrite = io.BytesIO()
             forecast_df.to_excel(towrite, index=False, sheet_name='Forecast')
             towrite.seek(0)
