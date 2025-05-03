@@ -5,6 +5,9 @@ import io
 import tensorflow as tf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+# Set page config at the very top!
+st.set_page_config(page_title="Offshore LSTM Forecast Dashboard", layout="wide")
+
 # Load model once
 @st.cache_resource
 def load_model():
