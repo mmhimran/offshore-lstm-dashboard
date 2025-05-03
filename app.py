@@ -10,7 +10,7 @@ uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=
 
 if uploaded_file:
     if uploaded_file.name.endswith(".xlsx"):
-        import openpyxl  # <-- Explicitly import openpyxl
+        import openpyxl
         df = pd.read_excel(uploaded_file, engine="openpyxl")
     else:
         df = pd.read_csv(uploaded_file)
