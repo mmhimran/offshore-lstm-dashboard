@@ -1,50 +1,46 @@
-# Import required packages
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import io
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import load_model
-import openpyxl  # Needed for reading .xlsx
 
-# App title and mode selection
-st.subheader("🛠️ Select Forecasting Mode")
-mode = st.radio(
-    "Choose your desired mode:",
-    ["Prediction and Comparison with Actual", "Forecasting Only"]
-)
+# Title
+st.subheader("\U0001F6E0\ufe0f Select Forecasting Mode")
 
-# File upload
+# Mode selection
+mode = st.radio("Choose your desired mode:", [
+    "Prediction and Comparison with Actual",
+    "Forecasting Only",
+    "Comparison Only"
+])
+
+# File uploader
 uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=["csv", "xlsx"])
 
 if uploaded_file:
+    # Read the file
     if uploaded_file.name.endswith(".xlsx"):
-        try:
-            df = pd.read_excel(uploaded_file, engine='openpyxl')
-        except Exception as e:
-            st.error("❌ Failed to read Excel file. Please ensure 'openpyxl' is properly installed.")
-            st.stop()
+        df = pd.read_excel(uploaded_file, engine='openpyxl')
     else:
         df = pd.read_csv(uploaded_file)
 
-    # Preprocessing
     df['Date'] = pd.to_datetime(df['Date'])
-    df = df.sort_values(by='Date').reset_index(drop=True)
-    df.interpolate(method='linear', inplace=True)
-    df.bfill(inplace=True)
-
-    st.subheader("📋 Uploaded Data")
-    st.dataframe(df.tail())
-
-    features = ['Te03m', 'Te30m', 'Te50m']
-    look_back = 504
-    prediction_horizon = 168
-    model = load_model("deep_lstm_checkpoint.keras")
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(df[features])
+    df = df.sort_values('Date').reset_index(drop=True)
 
     if mode == "Prediction and Comparison with Actual":
+        st.subheader("\U0001F4C4 Uploaded Data")
+        st.dataframe(df.tail())
+
+        features = ['Te03m', 'Te30m', 'Te50m']
+        look_back = 504
+        prediction_horizon = 168
+
+        model = load_model("deep_lstm_checkpoint.keras")
+        scaler = MinMaxScaler()
+        scaled_data = scaler.fit_transform(df[features])
+
         if len(df) < (look_back + prediction_horizon):
             st.error(f"❌ Need at least {look_back + prediction_horizon} rows for comparison mode.")
         else:
@@ -63,52 +59,54 @@ if uploaded_file:
             actual = actual[-prediction_horizon:]
             dates = dates[-prediction_horizon:]
 
-            # Plot
-            st.subheader("📊 Prediction vs Actual")
-            fig, ax = plt.subplots(figsize=(15, 6))
-            colors = ['red', 'green', 'blue']
-            labels = ['Te03m', 'Te30m', 'Te50m']
-            for i in range(3):
-                ax.plot(dates, actual[:, i], label=f'Actual {labels[i]}', color=colors[i], linewidth=3)
-                ax.plot(dates, prediction[:, i], label=f'Predicted {labels[i]}', linestyle='--', color=colors[i], linewidth=3)
-
-            ax.set_title("Forecast vs Actual", fontsize=24, fontweight='bold')
-            ax.set_xlabel("Date", fontsize=20)
-            ax.set_ylabel("Temperature (°C)", fontsize=20)
-            ax.legend(fontsize=14)
-            ax.grid(True)
-            st.pyplot(fig)
-
-            # Excel download
             result_df = pd.DataFrame({
                 'Date': dates,
                 'Actual_Te03m': actual[:, 0],
                 'Pred_Te03m': prediction[:, 0],
+                'Error_Te03m': actual[:, 0] - prediction[:, 0],
+                'Accuracy_Te03m (%)': 100 - np.abs((actual[:, 0] - prediction[:, 0]) / actual[:, 0]) * 100,
                 'Actual_Te30m': actual[:, 1],
                 'Pred_Te30m': prediction[:, 1],
+                'Error_Te30m': actual[:, 1] - prediction[:, 1],
+                'Accuracy_Te30m (%)': 100 - np.abs((actual[:, 1] - prediction[:, 1]) / actual[:, 1]) * 100,
                 'Actual_Te50m': actual[:, 2],
                 'Pred_Te50m': prediction[:, 2],
+                'Error_Te50m': actual[:, 2] - prediction[:, 2],
+                'Accuracy_Te50m (%)': 100 - np.abs((actual[:, 2] - prediction[:, 2]) / actual[:, 2]) * 100
             })
 
+            # Downloadable Excel
             towrite = io.BytesIO()
             result_df.to_excel(towrite, index=False, sheet_name='Comparison')
             towrite.seek(0)
             st.download_button("📥 Download Comparison Results", towrite, file_name="Comparison_Result.xlsx")
 
     elif mode == "Forecasting Only":
+        st.subheader("\U0001F4C4 Uploaded Data")
+        st.dataframe(df.tail())
+
+        features = ['Te03m', 'Te30m', 'Te50m']
+        look_back = 504
+        prediction_horizon = 168
+
+        model = load_model("deep_lstm_checkpoint.keras")
+        scaler = MinMaxScaler()
+        scaled_data = scaler.fit_transform(df[features])
+
         if len(df) < look_back:
             st.error(f"❌ Need at least {look_back} rows for forecasting.")
         else:
-            current_input = scaled_data[-look_back:]
-            current_input = np.expand_dims(current_input, axis=0)
+            X_input = scaled_data[-look_back:]
+            X_input = np.expand_dims(X_input, axis=0)
 
             predictions = []
-            for _ in range(prediction_horizon):
-                pred = model.predict(current_input)[0]
-                predictions.append(pred)
-                current_input = np.append(current_input[:, 1:, :], [pred.reshape(1, -1)], axis=1)
+            current_input = X_input.copy()
 
-            predictions = np.array(predictions)
+            for _ in range(prediction_horizon):
+                pred = model.predict(current_input)[0][-1]
+                predictions.append(pred)
+                current_input = np.append(current_input[:, 1:, :], [[pred]], axis=1)
+
             predictions = scaler.inverse_transform(predictions)
             last_date = df['Date'].iloc[-1]
             future_dates = pd.date_range(start=last_date + pd.Timedelta(hours=1), periods=prediction_horizon, freq='H')
@@ -120,21 +118,29 @@ if uploaded_file:
                 'Pred_Te50m': predictions[:, 2],
             })
 
-            st.subheader("📈 7-Day Forecast")
-            fig, ax = plt.subplots(figsize=(15, 6))
-            colors = ['red', 'green', 'blue']
-            for i, col in enumerate(['Pred_Te03m', 'Pred_Te30m', 'Pred_Te50m']):
-                ax.plot(forecast_df['Date'], forecast_df[col], label=col, color=colors[i], linewidth=3)
-
-            ax.set_title("Forecast for Next 168 Steps", fontsize=24, fontweight='bold')
-            ax.set_xlabel("Date", fontsize=20)
-            ax.set_ylabel("Temperature (°C)", fontsize=20)
-            ax.legend(fontsize=14)
-            ax.grid(True)
-            st.pyplot(fig)
-
-            # Excel download
             towrite = io.BytesIO()
             forecast_df.to_excel(towrite, index=False, sheet_name='Forecast')
             towrite.seek(0)
             st.download_button("📥 Download Forecast", towrite, file_name="Forecast_168_Steps.xlsx")
+
+    elif mode == "Comparison Only":
+        st.subheader("\U0001F4C4 Uploaded Data")
+        st.dataframe(df.tail())
+
+        # Expect columns: Date, Actual_Te03m, Pred_Te03m, ...
+        features = ['Te03m', 'Te30m', 'Te50m']
+
+        for f in features:
+            df[f'Error_{f}'] = df[f'Actual_{f}'] - df[f'Pred_{f}']
+            df[f'Accuracy_{f} (%)'] = 100 - np.abs((df[f'Error_{f}']) / df[f'Actual_{f}']) * 100
+
+        # Reorder columns
+        ordered_cols = ['Date']
+        for f in features:
+            ordered_cols += [f'Actual_{f}', f'Pred_{f}', f'Error_{f}', f'Accuracy_{f} (%)']
+        df = df[ordered_cols]
+
+        towrite = io.BytesIO()
+        df.to_excel(towrite, index=False, sheet_name='ComparisonOnly')
+        towrite.seek(0)
+        st.download_button("📥 Download Comparison Report", towrite, file_name="Comparison_Only.xlsx")
