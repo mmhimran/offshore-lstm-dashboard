@@ -1,4 +1,5 @@
 # Mode selection
+import streamlit as st
 st.subheader("🛠️ Select Forecasting Mode")
 mode = st.radio(
     "Choose your desired mode:",
