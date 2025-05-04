@@ -11,7 +11,7 @@ from datetime import timedelta
 
 # Set page config
 st.set_page_config(
-    page_title="PETRONAS Offshore LSTM Forecast Dashboard",
+    page_title="OFFSHORE TEMPERATURE FORECAST",
     layout="wide",
     initial_sidebar_state="expanded"
 )
