@@ -5,6 +5,7 @@ import io
 import tensorflow as tf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import timedelta
+import matplotlib.pyplot as plt
 
 # ⚙️ MUST be first Streamlit command
 st.set_page_config(page_title="Offshore LSTM Forecast Dashboard", layout="wide")
@@ -66,10 +67,12 @@ st.title("🧰 Select Forecasting Mode")
 mode = st.radio("Choose your desired mode:", [
     "Prediction and Comparison with Actual",
     "Forecasting Only",
-    "Compare xlsx file"
+    "Compare xlsx file",
+    "Plot Actual vs Predicted",
+    "Plot Accuracy"
 ])
 
-# ✅ FIXED Option 1
+# ✅ Option 1
 if mode == "Prediction and Comparison with Actual":
     uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'])
 
@@ -111,7 +114,7 @@ if mode == "Prediction and Comparison with Actual":
 
         st.download_button("📥 Download Prediction vs Actual Results", generate_excel(result), file_name="comparison_results.xlsx")
 
-# ✅ Option 2 – Leave unchanged
+# ✅ Option 2
 elif mode == "Forecasting Only":
     uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'])
     
@@ -125,7 +128,7 @@ elif mode == "Forecasting Only":
 
         st.download_button("📥 Download Forecast", generate_excel(forecast), file_name="forecast_results.xlsx")
 
-# ✅ Option 3 – Leave unchanged
+# ✅ Option 3
 elif mode == "Compare xlsx file":
     st.markdown("#### Upload Actual File")
     actual_file = st.file_uploader("Upload Actual File", type=['csv', 'xlsx'], key="actual")
@@ -144,3 +147,38 @@ elif mode == "Compare xlsx file":
         result = compare_data(actual_df, predicted_df)
 
         st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="comparison_only.xlsx")
+
+# ✅ Option 4 – Plot Actual vs Predicted
+elif mode == "Plot Actual vs Predicted":
+    uploaded_file = st.file_uploader("Upload XLSX file with prediction results", type=['xlsx'], key="plot_actual_vs_predicted")
+    
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        
+        plt.rcParams.update({'font.family': 'Times New Roman', 'font.size': 30})
+        for depth in ['Te03m', 'Te30m', 'Te50m']:
+            fig, ax = plt.subplots(figsize=(20, 10))
+            ax.plot(df['Date'], df[f'Actual_{depth}'], label='Actual', linewidth=4)
+            ax.plot(df['Date'], df[f'Predicted_{depth}'], label='Predicted', linewidth=4)
+            ax.set_title(f'{depth} Temperature: Actual vs Predicted', fontweight='bold')
+            ax.legend(fontsize=28)
+            ax.grid(True)
+            st.pyplot(fig)
+
+# ✅ Option 5 – Plot Accuracy
+elif mode == "Plot Accuracy":
+    uploaded_file = st.file_uploader("Upload XLSX file with accuracy results", type=['xlsx'], key="plot_accuracy")
+    
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file)
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        plt.rcParams.update({'font.family': 'Times New Roman', 'font.size': 30})
+        for depth in ['Te03m', 'Te30m', 'Te50m']:
+            fig, ax = plt.subplots(figsize=(20, 10))
+            ax.plot(df['Date'], df[f'Accuracy_{depth}'], label=f'Accuracy {depth}', linewidth=4)
+            ax.set_title(f'Accuracy for {depth} Temperature', fontweight='bold')
+            ax.legend(fontsize=28)
+            ax.grid(True)
+            st.pyplot(fig)
