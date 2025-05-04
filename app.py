@@ -87,7 +87,7 @@ def compare_data(actual_df, predicted_df):
     return result
 
 # ========================== UI ==============================
-st.title("🧰 PETRONAS Offshore LSTM Forecast Dashboard")
+st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
 mode = st.sidebar.radio("Choose your desired mode:", [
     "Prediction and Comparison with Actual",
     "Forecasting Only",
