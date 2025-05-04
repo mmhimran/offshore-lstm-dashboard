@@ -1,3 +1,4 @@
+import matplotlib.dates as mdates
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -176,9 +177,23 @@ elif mode == "Plot Accuracy":
 
         plt.rcParams.update({'font.family': 'Times New Roman', 'font.size': 30})
         for depth in ['Te03m', 'Te30m', 'Te50m']:
-            fig, ax = plt.subplots(figsize=(20, 10))
-            ax.plot(df['Date'], df[f'Accuracy_{depth}'], label=f'Accuracy {depth}', linewidth=4)
-            ax.set_title(f'Accuracy for {depth} Temperature', fontweight='bold')
-            ax.legend(fontsize=28)
-            ax.grid(True)
-            st.pyplot(fig)
+    fig, ax = plt.subplots(figsize=(20, 10))
+    
+    # Plotting
+    if mode == "Plot Actual vs Predicted":
+        ax.plot(df['Date'], df[f'Actual_{depth}'], label='Actual', linewidth=4)
+        ax.plot(df['Date'], df[f'Predicted_{depth}'], label='Predicted', linewidth=4)
+        ax.set_title(f'{depth} Temperature: Actual vs Predicted', fontweight='bold')
+    else:
+        ax.plot(df['Date'], df[f'Accuracy_{depth}'], label=f'Accuracy {depth}', linewidth=4)
+        ax.set_title(f'Accuracy for {depth} Temperature', fontweight='bold')
+
+    # Axis Formatting
+    ax.legend(fontsize=28)
+    ax.grid(True)
+    ax.tick_params(axis='x', labelrotation=45)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    fig.autofmt_xdate()
+
+    st.pyplot(fig)
+
