@@ -140,30 +140,15 @@ def plot_colored_line(df, x, y, title):
     fig.update_traces(line=dict(width=4), hovertemplate='<b>%{y:.2f}</b>', hoverlabel=dict(font_color='red'))
     fig.update_layout(
         font=dict(family="Times New Roman", size=24, color="black"),
-        title=dict(text=title, font=dict(size=28, family="Times New Roman", color="black", bold=True), x=0.5),
-        xaxis=dict(
-            showgrid=True,
-            title=dict(text='Date', font=dict(size=24, family="Times New Roman", color="black", bold=True)),
-            tickfont=dict(size=20, family="Times New Roman", color='black')
-        ),
-        yaxis=dict(
-            showgrid=True,
-            title=dict(text='Temperature (°C)', font=dict(size=24, family="Times New Roman", color="black", bold=True)),
-            tickfont=dict(size=20, family="Times New Roman", color='black')
-        ),
+        title_font=dict(size=28, family="Times New Roman", color="black"),
         plot_bgcolor='white',
         paper_bgcolor='white',
+        xaxis=dict(showgrid=True, tickfont=dict(size=20, color='black'), title_font=dict(size=24)),
+        yaxis=dict(showgrid=True, tickfont=dict(size=20, color='black'), title_font=dict(size=24)),
         margin=dict(l=50, r=50, t=80, b=50),
-        hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman"),
-        legend=dict(
-            font=dict(family="Times New Roman", size=20, color="black"),
-            bgcolor='white',
-            bordercolor='black',
-            borderwidth=1
-        )
+        hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman")
     )
     return fig
-
 
 if mode == "Visualize Actual vs Predicted":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis1")
