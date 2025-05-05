@@ -26,7 +26,7 @@ st.markdown("""
 
         /* Text color and sidebar font size */
         .css-1d391kg, .css-1cpxqw2 {
-            color: #673AB7 !important;
+            color: #FF0000 !important;
             font-size: 18px !important;
         }
 
