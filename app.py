@@ -1,6 +1,4 @@
-# ============================================================
-# OFFSHORE TEMPERATURE FORECAST DASHBOARD (With Plotly & PNG Export)
-# ============================================================
+# OFFSHORE TEMPERATURE FORECAST DASHBOARD
 
 import streamlit as st
 import pandas as pd
@@ -11,56 +9,60 @@ import plotly.express as px
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import timedelta
 
-# --- Set Page Config ---
+# --- Page config ---
 st.set_page_config(
     page_title="OFFSHORE TEMPERATURE FORECAST",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Styling ---
+# --- CSS style ---
 st.markdown("""
     <style>
         .main, .block-container, .css-18e3th9 {
             background-color: #417C7B !important;
         }
         .css-1d391kg, .css-1cpxqw2 {
-            color: #FF0000 !important;
+            color: #FFFFFF !important;
             font-size: 18px !important;
         }
         .css-10trblm {
-            color: #673AB7 !important;
+            color: #FFFAFA !important;
             font-size: 26px !important;
             font-weight: bold !important;
         }
         h1, h2, h3, h4, h5, h6 {
             color: #FFFAFA !important;
         }
-        .css-1x8cf1d {
-            color: #673AB7 !important;
-        }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Load LSTM Model ---
+# --- Load model ---
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model("deep_lstm_checkpoint.keras")
 
 model = load_model()
 
-# --- Excel Export Helper ---
+# --- Helpers ---
 def generate_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Forecast')
+        df.to_excel(writer, index=False)
     return output.getvalue()
 
-# --- Rounding Helper ---
 def round_df(df):
     return df.round(2)
 
-# --- Forecast Function ---
+def clean_and_round(df):
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
+    return round_df(df)
+
+def show_preview(df):
+    st.subheader("📋 Preview of Uploaded Data")
+    st.dataframe(df.head())
+
 def forecast_temperature(data, lookback=504, forecast_steps=168):
     values = data[['Te03m', 'Te30m', 'Te50m']].values
     scaled = (values - values.mean(axis=0)) / values.std(axis=0)
@@ -79,7 +81,6 @@ def forecast_temperature(data, lookback=504, forecast_steps=168):
     forecast_df.insert(0, 'Date', dates)
     return forecast_df
 
-# --- Compare Actual and Predicted ---
 def compare_data(actual_df, predicted_df):
     merged = pd.merge(actual_df, predicted_df, on='Date')
     result = pd.DataFrame({'Date': merged['Date']})
@@ -90,10 +91,9 @@ def compare_data(actual_df, predicted_df):
         result[f'Accuracy_{col}'] = 100 - (np.abs(result[f'Error_{col}']) / result[f'Actual_{col}'] * 100)
     return result
 
-# === Title ===
+# --- UI Title ---
 st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
 
-# === Mode Selector ===
 mode = st.sidebar.radio("Choose your desired mode:", [
     "Prediction and Comparison with Given Actual Value",
     "Future Forecasting Only",
@@ -156,20 +156,18 @@ elif mode == "Visualize Actual vs Predicted":
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
-        df = round_df(df)
+        df = clean_and_round(df)
+        show_preview(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
-            fig = px.line(df, x='Date', y=[f'Actual_{col}', f'Predicted_{col}'],
-                          labels={'value': 'Temperature (°C)', 'Date': 'Date', 'variable': 'Legend'},
-                          title=f"Actual vs Predicted for {col} Temperature")
-            fig.update_layout(font=dict(family="Times New Roman", size=20, color='black'),
-                              plot_bgcolor='white', paper_bgcolor='white',
-                              title_font=dict(size=26, family="Times New Roman", color="black"),
-                              hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman"))
-            fig.update_traces(hovertemplate='%{y:.2f}')
-            st.plotly_chart(fig, use_container_width=True)
-            img_bytes = fig.to_image(format="png", width=1000, height=500, engine="kaleido")
-            st.download_button(f"📥 Download {col} Actual vs Predicted Chart as PNG", img_bytes,
-                               file_name=f"actual_vs_predicted_{col}.png", mime="image/png")
+            if f'Actual_{col}' in df.columns and f'Predicted_{col}' in df.columns:
+                fig = px.line(df, x='Date', y=[f'Actual_{col}', f'Predicted_{col}'],
+                              title=f"Actual vs Predicted for {col} Temperature",
+                              labels={'value': 'Temperature (°C)', 'Date': 'Date'})
+                fig.update_traces(hovertemplate='%{y:.2f}')
+                st.plotly_chart(fig, use_container_width=True)
+                img_bytes = fig.to_image(format="png", width=1000, height=500, engine="kaleido")
+                st.download_button(f"📥 Download {col} Actual vs Predicted Chart as PNG", img_bytes,
+                                   file_name=f"actual_vs_predicted_{col}.png", mime="image/png")
 
 # === 5. Visualize Accuracy ===
 elif mode == "Visualize Accuracy":
@@ -177,19 +175,19 @@ elif mode == "Visualize Accuracy":
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
-        df = round_df(df)
+        df = clean_and_round(df)
+        show_preview(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
-            fig = px.line(df, x='Date', y=f'Accuracy_{col}', labels={'value': 'Accuracy (%)', 'Date': 'Date'},
-                          title=f"Accuracy for {col} Temperature")
-            fig.update_layout(font=dict(family="Times New Roman", size=20, color='black'),
-                              plot_bgcolor='white', paper_bgcolor='white',
-                              title_font=dict(size=26, family="Times New Roman", color="black"),
-                              hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman"))
-            fig.update_traces(hovertemplate='%{y:.2f}')
-            st.plotly_chart(fig, use_container_width=True)
-            img_bytes = fig.to_image(format="png", width=1000, height=500, engine="kaleido")
-            st.download_button(f"📥 Download {col} Accuracy Chart as PNG", img_bytes,
-                               file_name=f"accuracy_{col}.png", mime="image/png")
+            acc_col = f'Accuracy_{col}'
+            if acc_col in df.columns:
+                fig = px.line(df, x='Date', y=acc_col,
+                              title=f"Accuracy for {col} Temperature",
+                              labels={'value': 'Accuracy (%)', 'Date': 'Date'})
+                fig.update_traces(hovertemplate='%{y:.2f}')
+                st.plotly_chart(fig, use_container_width=True)
+                img_bytes = fig.to_image(format="png", width=1000, height=500, engine="kaleido")
+                st.download_button(f"📥 Download {col} Accuracy Chart as PNG", img_bytes,
+                                   file_name=f"accuracy_{col}.png", mime="image/png")
 
 # === 6. Compute SE and MAPE for Each Row ===
 elif mode == "Compute SE and MAPE for Each Row":
@@ -197,14 +195,21 @@ elif mode == "Compute SE and MAPE for Each Row":
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
-        result = pd.DataFrame({'Date': df['Date']})
+        result = pd.DataFrame()
+        result['Date'] = df['Date']
         for col in ['Te03m', 'Te30m', 'Te50m']:
-            result[f'Actual_{col}'] = df[f'Actual_{col}']
-            result[f'Predicted_{col}'] = df[f'Predicted_{col}']
-            result[f'Error_{col}'] = df[f'Actual_{col}'] - df[f'Predicted_{col}']
-            result[f'Accuracy_{col}'] = 100 - (np.abs(result[f'Error_{col}']) / df[f'Actual_{col}'] * 100)
-            result[f'SE_{col}'] = result[f'Error_{col}'] ** 2
-            result[f'MAPE_{col}'] = (np.abs(result[f'Error_{col}']) / df[f'Actual_{col}']) * 100
+            actual_col = f'Actual_{col}'
+            pred_col = f'Predicted_{col}'
+            error_col = f'Error_{col}'
+            acc_col = f'Accuracy_{col}'
+            se_col = f'SE_{col}'
+            mape_col = f'MAPE_{col}'
+            result[actual_col] = df[actual_col]
+            result[pred_col] = df[pred_col]
+            result[error_col] = df[actual_col] - df[pred_col]
+            result[acc_col] = 100 - (abs(result[error_col]) / df[actual_col] * 100)
+            result[se_col] = (result[error_col]) ** 2
+            result[mape_col] = abs(result[error_col] / df[actual_col]) * 100
         st.dataframe(result.head())
         st.download_button("📥 Download Result with SE and MAPE", generate_excel(result), file_name="Result_SE_MAPE.xlsx")
 
@@ -231,19 +236,25 @@ elif mode == "Visualize Error Metrics":
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
-        df = round_df(df)
+        df = clean_and_round(df)
+        show_preview(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
-            for metric in ['SE', 'MAPE']:
-                mcol = f"{metric}_{col}"
-                if mcol in df.columns:
-                    fig = px.line(df, x='Date', y=mcol, title=f"{metric} for {col}",
-                                  labels={'value': metric, 'Date': 'Date'})
-                    fig.update_layout(font=dict(family="Times New Roman", size=20, color='black'),
-                                      plot_bgcolor='white', paper_bgcolor='white',
-                                      title_font=dict(size=26, family="Times New Roman", color="black"),
-                                      hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman"))
-                    fig.update_traces(hovertemplate='%{y:.2f}')
-                    st.plotly_chart(fig, use_container_width=True)
-                    img_bytes = fig.to_image(format="png", width=1000, height=500, engine="kaleido")
-                    st.download_button(f"📥 Download {metric} {col} Chart as PNG", img_bytes,
-                                       file_name=f"{metric}_{col}.png", mime="image/png")
+            se_col = f'SE_{col}'
+            mape_col = f'MAPE_{col}'
+            if se_col in df.columns:
+                fig_se = px.line(df, x='Date', y=se_col,
+                                 title=f"Squared Error for {col}",
+                                 labels={'value': 'Squared Error', 'Date': 'Date'})
+                fig_se.update_traces(hovertemplate='%{y:.2f}')
+                st.plotly_chart(fig_se, use_container_width=True)
+                img_bytes = fig_se.to_image(format="png", width=1000, height=500, engine="kaleido")
+                st.download_button(f"📥 Download {col} SE Chart as PNG", img_bytes, file_name=f"se_{col}.png")
+
+            if mape_col in df.columns:
+                fig_mape = px.line(df, x='Date', y=mape_col,
+                                   title=f"MAPE for {col}",
+                                   labels={'value': 'MAPE (%)', 'Date': 'Date'})
+                fig_mape.update_traces(hovertemplate='%{y:.2f}')
+                st.plotly_chart(fig_mape, use_container_width=True)
+                img_bytes = fig_mape.to_image(format="png", width=1000, height=500, engine="kaleido")
+                st.download_button(f"📥 Download {col} MAPE Chart as PNG", img_bytes, file_name=f"mape_{col}.png")
