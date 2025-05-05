@@ -19,7 +19,7 @@ st.markdown("""
         }
         .css-1d391kg, .css-1cpxqw2 {
             color: #FFFAFA !important;
-            font-size: 18px !important;
+            font-size: 22px !important;
         }
         .css-10trblm {
             color: #673AB7 !important;
@@ -27,10 +27,10 @@ st.markdown("""
             font-weight: bold !important;
         }
         .css-1cpxqw2 {
-            font-size: 18px !important;
+            font-size: 22px !important;
         }
         h1, h2, h3, h4, h5, h6 {
-            color: #FF0000 !important;
+            color: #FFFAFA !important;
         }
         .css-1x8cf1d {
             color: #673AB7 !important;
