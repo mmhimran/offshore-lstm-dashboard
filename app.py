@@ -93,7 +93,10 @@ mode = st.sidebar.radio("Choose your desired mode:", [
     "Future Forecasting Only",
     "Compare Predicted with Actual",
     "Visualize Actual vs Predicted",
-    "Visualize Accuracy"
+    "Visualize Accuracy",
+    "Compute SE and MAPE for Each Row",
+    "Calculate Overall Metrics",
+    "Visualize Error Metrics"
 ])
 
 # === 1. Prediction and Comparison ===
