@@ -97,7 +97,7 @@ mode = st.sidebar.radio("Choose your desired mode:", [
 ])
 
 # === 1. Prediction and Comparison ===
-if mode == "Prediction and Comparison with Actual":
+if mode == "Prediction and Comparison with Given Actual Value":
     uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'])
     if uploaded_file:
         df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
@@ -119,7 +119,7 @@ if mode == "Prediction and Comparison with Actual":
         st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="comparison_results.xlsx")
 
 # === 2. Forecasting Only ===
-elif mode == "Forecasting Only":
+elif mode == "Future Forecasting Only":
     uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'])
     if uploaded_file:
         df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
@@ -130,7 +130,7 @@ elif mode == "Forecasting Only":
         st.download_button("📥 Download Forecast", generate_excel(forecast), file_name="forecast_results.xlsx")
 
 # === 3. Compare XLSX ===
-elif mode == "Compare xlsx file":
+elif mode == "Compare Predicted with Actual":
     actual_file = st.file_uploader("Upload Actual File", type=['csv', 'xlsx'], key="actual")
     predicted_file = st.file_uploader("Upload Predicted File", type=['csv', 'xlsx'], key="predicted")
     if actual_file and predicted_file:
