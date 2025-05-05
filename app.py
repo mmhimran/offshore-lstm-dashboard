@@ -178,3 +178,61 @@ elif mode == "Visualize Accuracy":
             plt.legend(fontsize=20)
             plt.grid(True)
             st.pyplot(plt)
+# === 6. Compute SE and MAPE for Each Row ===
+elif mode == "Compute SE and MAPE for Each Row":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="se_mape")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            df[f'SE_{col}'] = (df[f'Actual_{col}'] - df[f'Predicted_{col}'])**2
+            df[f'MAPE_{col}'] = np.abs((df[f'Actual_{col}'] - df[f'Predicted_{col}']) / df[f'Actual_{col}']) * 100
+
+        st.dataframe(df.head())
+
+        st.download_button(
+            "📥 Download Result with SE and MAPE",
+            generate_excel(df),
+            file_name="rowwise_metrics.xlsx"
+        )
+
+# === 7. Calculate Overall Metrics ===
+elif mode == "Calculate Overall Metrics":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="overall_metrics")
+    if file:
+        df = pd.read_excel(file)
+        st.subheader("📊 Overall Evaluation Metrics")
+
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            mae = mean_absolute_error(df[f'Actual_{col}'], df[f'Predicted_{col}'])
+            rmse = np.sqrt(mean_squared_error(df[f'Actual_{col}'], df[f'Predicted_{col}']))
+            ss_res = np.sum((df[f'Actual_{col}'] - df[f'Predicted_{col}'])**2)
+            ss_tot = np.sum((df[f'Actual_{col}'] - df[f'Actual_{col}'].mean())**2)
+            r2 = 1 - (ss_res / ss_tot)
+
+            st.write(f"### 📌 {col} Depth")
+            st.metric("MAE", f"{mae:.4f}")
+            st.metric("RMSE", f"{rmse:.4f}")
+            st.metric("R²", f"{r2:.4f}")
+
+# === 8. Visualize Error Metrics (SE and MAPE) ===
+elif mode == "Visualize Error Metrics":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis_error")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        for metric in ['SE', 'MAPE']:
+            for col in ['Te03m', 'Te30m', 'Te50m']:
+                metric_col = f'{metric}_{col}'
+                if metric_col in df.columns:
+                    plt.figure(figsize=(14, 6))
+                    plt.plot(df['Date'], df[metric_col], linewidth=4)
+                    plt.title(f"{metric} for {col} Temperature", fontsize=30, fontweight='bold', fontname="Times New Roman")
+                    plt.xlabel("Date", fontsize=25, fontname="Times New Roman")
+                    plt.ylabel(f"{metric} Value", fontsize=25, fontname="Times New Roman")
+                    plt.xticks(fontsize=20, fontname="Times New Roman", rotation=30)
+                    plt.yticks(fontsize=20, fontname="Times New Roman")
+                    plt.grid(True)
+                    st.pyplot(plt)
