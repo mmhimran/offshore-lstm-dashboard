@@ -61,52 +61,35 @@ def generate_excel(df):
 # Plot for Any Metric
 def plot_metric(df, y, title):
     fig = go.Figure()
-
     if isinstance(y, list):
         colors = ['blue', 'red']
         for i, col in enumerate(y):
             fig.add_trace(go.Scatter(
                 x=df['Date'], y=df[col], mode='lines',
                 name=col, line=dict(color=colors[i], width=4),
-                hovertemplate=f'<span style="color:red;"><b>%{{y:.2f}}</b></span><extra></extra>'
+                hovertemplate='<b style="color:red;">%{y:.2f}</b><extra></extra>'
             ))
-        y_title = "Temperature (°C)"
     else:
         fig.add_trace(go.Scatter(
             x=df['Date'], y=df[y], mode='lines',
             name=y, line=dict(color='blue', width=4),
-            hovertemplate=f'<span style="color:red;"><b>%{{y:.2f}}</b></span><extra></extra>'
+            hovertemplate='<b style="color:red;">%{y:.2f}</b><extra></extra>'
         ))
-        y_title = y if "Accuracy" in y or "MAPE" in y or "SE" in y else "Temperature (°C)"
 
     fig.update_layout(
         title=dict(
             text=title,
-            font=dict(family="Times New Roman", size=28, color='black'),
-            x=0.5
+            font=dict(family="Times New Roman", size=26, color='black', bold=True),
+            x=0.5  # Center the title
         ),
-        xaxis=dict(
-            title='Date',
-            titlefont=dict(family="Times New Roman", size=24, color='black'),
-            tickfont=dict(family="Times New Roman", size=20, color='black'),
-            showline=True,
-            linewidth=2,
-            linecolor='black'
-        ),
-        yaxis=dict(
-            title=y_title,
-            titlefont=dict(family="Times New Roman", size=24, color='black'),
-            tickfont=dict(family="Times New Roman", size=20, color='black'),
-            showline=True,
-            linewidth=2,
-            linecolor='black'
-        ),
-        font=dict(family="Times New Roman", size=20, color='black'),
+        xaxis_title="Date",
+        yaxis_title=y if isinstance(y, str) else "Temperature (°C)",
         plot_bgcolor='white',
         paper_bgcolor='white',
-        margin=dict(l=80, r=80, t=80, b=80),
+        font=dict(family="Times New Roman", size=24, color='black'),
+        margin=dict(l=60, r=60, t=60, b=60),
         legend=dict(
-            font=dict(family="Times New Roman", size=20, color='black'),
+            font=dict(size=20, color='black'),
             bgcolor='white',
             bordercolor='black',
             borderwidth=1
@@ -115,12 +98,10 @@ def plot_metric(df, y, title):
             bgcolor="white",
             font_size=20,
             font_family="Times New Roman",
-            font_color="red"
+            font_color='red'
         )
     )
-
     return fig
-
 
 # UI
 st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
