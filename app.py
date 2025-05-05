@@ -75,7 +75,43 @@ def compare_data(actual_df, predicted_df):
 def round_df(df, decimals=2):
     return df.round({col: decimals for col in df.columns if col != 'Date'})
 
-# ------------------- UI -------------------
+# ------------------- PLOTTING -------------------
+def plot_colored_line(df, x, y_cols, title):
+    df_long = df.melt(id_vars=[x], value_vars=y_cols, var_name="Legend", value_name="Temperature (°C)")
+    fig = px.line(df_long, x=x, y="Temperature (°C)", color="Legend",
+                  title=title, color_discrete_sequence=['blue', 'red'])
+
+    fig.update_traces(line=dict(width=4), hovertemplate='<b>%{y:.2f}</b>', hoverlabel=dict(font_color='red'))
+
+    fig.update_layout(
+        font=dict(family="Times New Roman", size=24, color="black"),
+        title_font=dict(size=30, family="Times New Roman", color="black"),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(
+            title="Date",
+            titlefont=dict(size=24, family="Times New Roman", color="black"),
+            tickfont=dict(size=20, color='black'),
+            showgrid=True
+        ),
+        yaxis=dict(
+            title="Temperature (°C)",
+            titlefont=dict(size=24, family="Times New Roman", color="black"),
+            tickfont=dict(size=20, color='black'),
+            showgrid=True
+        ),
+        legend=dict(
+            font=dict(family="Times New Roman", size=20, color="black"),
+            bgcolor='rgba(255,255,255,0.5)',
+            bordercolor='black',
+            borderwidth=1
+        ),
+        margin=dict(l=50, r=50, t=80, b=50),
+        hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman")
+    )
+    return fig
+
+# ------------------- UI MODE SELECTION -------------------
 st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
 
 mode = st.sidebar.radio("Choose your desired mode:", [
@@ -129,43 +165,7 @@ elif mode == "Compare Predicted with Actual":
         result = compare_data(actual_df, predicted_df)
         st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="Result_Comparison.xlsx")
 
-# ------------------- CUSTOMIZED VISUALIZATION BLOCKS -------------------
-
-def plot_colored_line(df, x, y, title):
-    fig = px.line(df, x=x, y=y,
-                  title=title,
-                  color_discrete_sequence=['blue', 'red'])
-
-    fig.update_traces(line=dict(width=4), hovertemplate='<b>%{y:.2f}</b>', hoverlabel=dict(font_color='red'))
-
-    fig.update_layout(
-        font=dict(family="Times New Roman", size=24, color="black"),
-        title_font=dict(size=30, family="Times New Roman", color="black"),
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(
-            title="Date",
-            titlefont=dict(size=24, family="Times New Roman", color="black"),
-            tickfont=dict(size=20, color='black'),
-            showgrid=True
-        ),
-        yaxis=dict(
-            title="Temperature (°C)",
-            titlefont=dict(size=24, family="Times New Roman", color="black"),
-            tickfont=dict(size=20, color='black'),
-            showgrid=True
-        ),
-        legend=dict(
-            font=dict(family="Times New Roman", size=20, color="black"),
-            bgcolor='rgba(255,255,255,0.5)',
-            bordercolor='black',
-            borderwidth=1
-        ),
-        margin=dict(l=50, r=50, t=80, b=50),
-        hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman")
-    )
-    return fig
-if mode == "Visualize Actual vs Predicted":
+elif mode == "Visualize Actual vs Predicted":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis1")
     if file:
         df = pd.read_excel(file)
@@ -173,22 +173,23 @@ if mode == "Visualize Actual vs Predicted":
         df = round_df(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
             if f'Actual_{col}' in df.columns and f'Predicted_{col}' in df.columns:
-                fig = plot_colored_line(df, x='Date', y=[f'Actual_{col}', f'Predicted_{col}'],
+                fig = plot_colored_line(df, x='Date', y_cols=[f'Actual_{col}', f'Predicted_{col}'],
                                         title=f"Actual vs Predicted for {col} Temperature")
                 st.plotly_chart(fig, use_container_width=True)
 
-if mode == "Visualize Accuracy":
+elif mode == "Visualize Accuracy":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis2")
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
         df = round_df(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
-            fig = plot_colored_line(df, x='Date', y=f'Accuracy_{col}',
-                                    title=f"Accuracy for {col} Temperature")
-            st.plotly_chart(fig, use_container_width=True)
+            if f'Accuracy_{col}' in df.columns:
+                fig = plot_colored_line(df, x='Date', y_cols=[f'Accuracy_{col}'],
+                                        title=f"Accuracy for {col} Temperature")
+                st.plotly_chart(fig, use_container_width=True)
 
-if mode == "Visualize Error Metrics":
+elif mode == "Visualize Error Metrics":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis_error")
     if file:
         df = pd.read_excel(file)
@@ -198,11 +199,11 @@ if mode == "Visualize Error Metrics":
             for metric_type in ['SE', 'MAPE']:
                 metric_col = f'{metric_type}_{col}'
                 if metric_col in df.columns:
-                    fig = plot_colored_line(df, x='Date', y=metric_col,
+                    fig = plot_colored_line(df, x='Date', y_cols=[metric_col],
                                             title=f"{metric_type} for {col}")
                     st.plotly_chart(fig, use_container_width=True)
 
-if mode == "Compute SE and MAPE for Each Row":
+elif mode == "Compute SE and MAPE for Each Row":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="se_mape")
     if file:
         df = pd.read_excel(file)
@@ -225,7 +226,7 @@ if mode == "Compute SE and MAPE for Each Row":
         st.dataframe(result.head())
         st.download_button("📥 Download Result with SE and MAPE", generate_excel(result), file_name="Result_SE_MAPE.xlsx")
 
-if mode == "Calculate Overall Metrics":
+elif mode == "Calculate Overall Metrics":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="overall_metrics")
     if file:
         df = pd.read_excel(file)
