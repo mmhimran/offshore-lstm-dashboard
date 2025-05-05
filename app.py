@@ -18,7 +18,7 @@ st.markdown("""
             background-color: #417C7B !important;
         }
         .css-1d391kg, .css-1cpxqw2 {
-            color: #FF0000 !important;
+            color: #FFFAFA !important;
             font-size: 18px !important;
         }
         .css-10trblm {
