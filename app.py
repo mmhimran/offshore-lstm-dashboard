@@ -70,12 +70,14 @@ def plot_metric(df, y, title):
                 name=col, line=dict(color=colors[i], width=4),
                 hovertemplate=f'<span style="color:red;"><b>%{{y:.2f}}</b></span><extra></extra>'
             ))
+        y_title = "Temperature (°C)"
     else:
         fig.add_trace(go.Scatter(
             x=df['Date'], y=df[y], mode='lines',
             name=y, line=dict(color='blue', width=4),
             hovertemplate=f'<span style="color:red;"><b>%{{y:.2f}}</b></span><extra></extra>'
         ))
+        y_title = y if "Accuracy" in y or "MAPE" in y or "SE" in y else "Temperature (°C)"
 
     fig.update_layout(
         title=dict(
@@ -92,7 +94,7 @@ def plot_metric(df, y, title):
             linecolor='black'
         ),
         yaxis=dict(
-            title='Temperature (°C)' if 'Temperature' in title else y if isinstance(y, str) else '',
+            title=y_title,
             titlefont=dict(family="Times New Roman", size=24, color='black'),
             tickfont=dict(family="Times New Roman", size=20, color='black'),
             showline=True,
