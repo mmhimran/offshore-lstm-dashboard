@@ -3,20 +3,47 @@ import pandas as pd
 import numpy as np
 import io
 import tensorflow as tf
-import plotly.graph_objects as go
+import plotly.express as px
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import timedelta
 
-# Streamlit Page Config
+# ------------------- PAGE CONFIG -------------------
 st.set_page_config(page_title="OFFSHORE TEMPERATURE FORECAST", layout="wide", initial_sidebar_state="expanded")
 
-# Load Model
+# ------------------- CSS STYLING -------------------
+st.markdown("""
+    <style>
+        .main, .block-container {
+            background-color: #417C7B !important;
+        }
+        .css-1d391kg, .css-1cpxqw2 {
+            color: #FF0000 !important;
+            font-size: 18px !important;
+        }
+        .css-10trblm {
+            color: #FFFAFA !important;
+            font-size: 26px !important;
+            font-weight: bold !important;
+        }
+        h1, h2, h3 {
+            color: #FFFAFA !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# ------------------- MODEL LOADING -------------------
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model("deep_lstm_checkpoint.keras")
 model = load_model()
 
-# Forecasting
+# ------------------- UTILITY FUNCTIONS -------------------
+def generate_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Forecast')
+    return output.getvalue()
+
 def forecast_temperature(data, lookback=504, forecast_steps=168):
     values = data[['Te03m', 'Te30m', 'Te50m']].values
     scaled = (values - values.mean(axis=0)) / values.std(axis=0)
@@ -35,7 +62,6 @@ def forecast_temperature(data, lookback=504, forecast_steps=168):
     forecast_df.insert(0, 'Date', dates)
     return forecast_df
 
-# Compare Actual and Predicted
 def compare_data(actual_df, predicted_df):
     merged = pd.merge(actual_df, predicted_df, on='Date')
     result = pd.DataFrame({'Date': merged['Date']})
@@ -44,64 +70,13 @@ def compare_data(actual_df, predicted_df):
         result[f'Predicted_{col}'] = merged[f'Pred_{col}']
         result[f'Error_{col}'] = result[f'Actual_{col}'] - result[f'Predicted_{col}']
         result[f'Accuracy_{col}'] = 100 - (np.abs(result[f'Error_{col}']) / result[f'Actual_{col}'] * 100)
-        result[f'SE_{col}'] = result[f'Error_{col}'] ** 2
-        result[f'MAPE_{col}'] = np.abs(result[f'Error_{col}'] / result[f'Actual_{col}']) * 100
     return result
 
-def round_df(df): return df.round(2)
+def round_df(df, decimals=2):
+    return df.round({col: decimals for col in df.columns if col != 'Date'})
 
-def generate_excel(df):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
-# Enhanced Plotly Chart
-def plot_metric(df, y, title):
-    fig = go.Figure()
-    if isinstance(y, list):
-        colors = ['blue', 'red']
-        for i, col in enumerate(y):
-            fig.add_trace(go.Scatter(
-                x=df['Date'], y=df[col], mode='lines',
-                name=col,
-                line=dict(color=colors[i], width=5),
-                hovertemplate='<span style="color:red;"><b>%{y:.2f}</b></span><extra></extra>'
-            ))
-    else:
-        fig.add_trace(go.Scatter(
-            x=df['Date'], y=df[y], mode='lines',
-            name=y,
-            line=dict(color='blue', width=5),
-            hovertemplate='<span style="color:red;"><b>%{y:.2f}</b></span><extra></extra>'
-        ))
-
-    fig.update_layout(
-        title=dict(
-            text=f"<b>{title}</b>",
-            font=dict(family="Times New Roman", size=26, color='black'),
-            x=0.5
-        ),
-        xaxis=dict(
-            title='<b>Date</b>',
-            titlefont=dict(family="Times New Roman", size=24, color='black'),
-            tickfont=dict(family="Times New Roman", size=20, color='black')
-        ),
-        yaxis=dict(
-            title='<b>Temperature (°C)</b>' if isinstance(y, list) else f"<b>{y}</b>",
-            titlefont=dict(family="Times New Roman", size=24, color='black'),
-            tickfont=dict(family="Times New Roman", size=20, color='black')
-        ),
-        font=dict(family="Times New Roman", size=20, color='black'),
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(l=50, r=50, t=60, b=50),
-        legend=dict(font=dict(size=18, color='black'), bgcolor='white', bordercolor='black'),
-        hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman", font_color='red')
-    )
-    return fig
-
-# UI Layout
-st.title("📉 OFFSHORE TEMPERATURE FORECAST")
+# ------------------- UI -------------------
+st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
 
 mode = st.sidebar.radio("Choose your desired mode:", [
     "Prediction and Comparison with Given Actual Value",
@@ -114,100 +89,154 @@ mode = st.sidebar.radio("Choose your desired mode:", [
     "Visualize Error Metrics"
 ])
 
-# 1. Prediction + Actual
+# ------------------- MAIN BLOCKS -------------------
+
 if mode == "Prediction and Comparison with Given Actual Value":
-    file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
-    if file:
-        df = pd.read_excel(file) if file.name.endswith("xlsx") else pd.read_csv(file)
+    uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'])
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
         df['Date'] = pd.to_datetime(df['Date'])
         lookback_df = df.iloc[:504]
-        actual_df = df.iloc[504:].reset_index(drop=True)
-        forecast_df = forecast_temperature(lookback_df)
-        forecast_df.columns = ['Date', 'Pred_Te03m', 'Pred_Te30m', 'Pred_Te50m']
-        result = compare_data(actual_df, forecast_df)
+        actual_df = df.iloc[504:]
+        forecast = forecast_temperature(lookback_df)
+        predicted = forecast.rename(columns={
+            'Te03m': 'Pred_Te03m',
+            'Te30m': 'Pred_Te30m',
+            'Te50m': 'Pred_Te50m'
+        })
+        actual_df = actual_df[['Date', 'Te03m', 'Te30m', 'Te50m']].reset_index(drop=True)
+        predicted = predicted[['Date', 'Pred_Te03m', 'Pred_Te30m', 'Pred_Te50m']].reset_index(drop=True)
+        result = compare_data(actual_df, predicted)
         st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="Results_504+168.xlsx")
 
-# 2. Future Forecasting
 elif mode == "Future Forecasting Only":
-    file = st.file_uploader("Upload File", type=["csv", "xlsx"])
-    if file:
-        df = pd.read_excel(file) if file.name.endswith("xlsx") else pd.read_csv(file)
+    uploaded_file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'])
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
         df['Date'] = pd.to_datetime(df['Date'])
         forecast = forecast_temperature(df)
-        st.download_button("📥 Download Forecast", generate_excel(forecast), file_name="Future_Prediction.xlsx")
+        st.download_button("📥 Download Forecast", generate_excel(forecast), file_name="Result_Prediction_168.xlsx")
 
-# 3. Compare CSVs
 elif mode == "Compare Predicted with Actual":
-    actual_file = st.file_uploader("Upload Actual File", type=["csv", "xlsx"], key="actual")
-    predicted_file = st.file_uploader("Upload Predicted File", type=["csv", "xlsx"], key="predicted")
+    actual_file = st.file_uploader("Upload Actual File", type=['csv', 'xlsx'], key="actual")
+    predicted_file = st.file_uploader("Upload Predicted File", type=['csv', 'xlsx'], key="predicted")
     if actual_file and predicted_file:
-        actual_df = pd.read_excel(actual_file) if actual_file.name.endswith("xlsx") else pd.read_csv(actual_file)
-        predicted_df = pd.read_excel(predicted_file) if predicted_file.name.endswith("xlsx") else pd.read_csv(predicted_file)
+        actual_df = pd.read_excel(actual_file) if actual_file.name.endswith('xlsx') else pd.read_csv(actual_file)
+        predicted_df = pd.read_excel(predicted_file) if predicted_file.name.endswith('xlsx') else pd.read_csv(predicted_file)
         actual_df['Date'] = pd.to_datetime(actual_df['Date'])
         predicted_df['Date'] = pd.to_datetime(predicted_df['Date'])
-        predicted_df.columns = ['Date', 'Pred_Te03m', 'Pred_Te30m', 'Pred_Te50m']
+        predicted_df.rename(columns=lambda x: f'Pred_{x}' if x != 'Date' else x, inplace=True)
         result = compare_data(actual_df, predicted_df)
-        st.download_button("📥 Download Result", generate_excel(result), file_name="Result_Comparison.xlsx")
+        st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="Result_Comparison.xlsx")
 
-# 4. Visualize Actual vs Predicted
-elif mode == "Visualize Actual vs Predicted":
-    file = st.file_uploader("Upload Excel result file", type=["xlsx"])
+# ------------------- CUSTOMIZED VISUALIZATION BLOCKS -------------------
+
+def plot_colored_line(df, x, y, title):
+    fig = px.line(df, x=x, y=y,
+                  labels={'value': 'Temperature (°C)', 'variable': 'Legend'},
+                  title=title,
+                  color_discrete_sequence=['blue', 'red'])
+
+    fig.update_traces(line=dict(width=4), hovertemplate='<b>%{y:.2f}</b>', hoverlabel=dict(font_color='red'))
+    fig.update_layout(
+        font=dict(family="Times New Roman", size=24, color="black"),
+        title=dict(text=title, font=dict(size=28, family="Times New Roman", color="black", bold=True), x=0.5),
+        xaxis=dict(
+            showgrid=True,
+            title=dict(text='Date', font=dict(size=24, family="Times New Roman", color="black", bold=True)),
+            tickfont=dict(size=20, family="Times New Roman", color='black')
+        ),
+        yaxis=dict(
+            showgrid=True,
+            title=dict(text='Temperature (°C)', font=dict(size=24, family="Times New Roman", color="black", bold=True)),
+            tickfont=dict(size=20, family="Times New Roman", color='black')
+        ),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=50, r=50, t=80, b=50),
+        hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman"),
+        legend=dict(
+            font=dict(family="Times New Roman", size=20, color="black"),
+            bgcolor='white',
+            bordercolor='black',
+            borderwidth=1
+        )
+    )
+    return fig
+
+
+if mode == "Visualize Actual vs Predicted":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis1")
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
         df = round_df(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
             if f'Actual_{col}' in df.columns and f'Predicted_{col}' in df.columns:
-                fig = plot_metric(df, [f'Actual_{col}', f'Predicted_{col}'], f"Actual vs Predicted for {col}")
+                fig = plot_colored_line(df, x='Date', y=[f'Actual_{col}', f'Predicted_{col}'],
+                                        title=f"Actual vs Predicted for {col} Temperature")
                 st.plotly_chart(fig, use_container_width=True)
-                st.download_button(f"📥 Download {col} PNG", fig.to_image(format="png", width=1200, height=600, engine="kaleido"),
-                                   file_name=f"{col}_actual_vs_predicted.png", mime="image/png")
 
-# 5. Visualize Accuracy
-elif mode == "Visualize Accuracy":
-    file = st.file_uploader("Upload Result File", type=["xlsx"])
+if mode == "Visualize Accuracy":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis2")
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
         df = round_df(df)
         for col in ['Te03m', 'Te30m', 'Te50m']:
-            if f'Accuracy_{col}' in df.columns:
-                fig = plot_metric(df, f'Accuracy_{col}', f"Accuracy for {col}")
-                st.plotly_chart(fig, use_container_width=True)
+            fig = plot_colored_line(df, x='Date', y=f'Accuracy_{col}',
+                                    title=f"Accuracy for {col} Temperature")
+            st.plotly_chart(fig, use_container_width=True)
 
-# 6. Compute SE and MAPE
-elif mode == "Compute SE and MAPE for Each Row":
-    file = st.file_uploader("Upload Result File", type=["xlsx"])
+if mode == "Visualize Error Metrics":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis_error")
     if file:
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
-        df = compare_data(df, df)
-        st.download_button("📥 Download Result with SE & MAPE", generate_excel(df), file_name="SE_MAPE_Result.xlsx")
+        df = round_df(df)
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            for metric_type in ['SE', 'MAPE']:
+                metric_col = f'{metric_type}_{col}'
+                if metric_col in df.columns:
+                    fig = plot_colored_line(df, x='Date', y=metric_col,
+                                            title=f"{metric_type} for {col}")
+                    st.plotly_chart(fig, use_container_width=True)
 
-# 7. Overall Metrics
-elif mode == "Calculate Overall Metrics":
-    file = st.file_uploader("Upload Result File", type=["xlsx"])
+if mode == "Compute SE and MAPE for Each Row":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="se_mape")
     if file:
         df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        result = pd.DataFrame()
+        result['Date'] = df['Date']
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            actual_col = f'Actual_{col}'
+            pred_col = f'Predicted_{col}'
+            error_col = f'Error_{col}'
+            acc_col = f'Accuracy_{col}'
+            se_col = f'SE_{col}'
+            mape_col = f'MAPE_{col}'
+            result[actual_col] = df[actual_col]
+            result[pred_col] = df[pred_col]
+            result[error_col] = df[actual_col] - df[pred_col]
+            result[acc_col] = 100 - (abs(result[error_col]) / df[actual_col] * 100)
+            result[se_col] = (result[error_col]) ** 2
+            result[mape_col] = abs(result[error_col] / df[actual_col]) * 100
+        st.dataframe(result.head())
+        st.download_button("📥 Download Result with SE and MAPE", generate_excel(result), file_name="Result_SE_MAPE.xlsx")
+
+if mode == "Calculate Overall Metrics":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="overall_metrics")
+    if file:
+        df = pd.read_excel(file)
+        st.subheader("📊 Overall Evaluation Metrics")
         for col in ['Te03m', 'Te30m', 'Te50m']:
             mae = mean_absolute_error(df[f'Actual_{col}'], df[f'Predicted_{col}'])
             rmse = np.sqrt(mean_squared_error(df[f'Actual_{col}'], df[f'Predicted_{col}']))
-            r2 = 1 - np.sum((df[f'Actual_{col}'] - df[f'Predicted_{col}']) ** 2) / np.sum((df[f'Actual_{col}'] - df[f'Actual_{col}'].mean()) ** 2)
-            st.write(f"### 📌 Metrics for {col}")
+            ss_res = np.sum((df[f'Actual_{col}'] - df[f'Predicted_{col}']) ** 2)
+            ss_tot = np.sum((df[f'Actual_{col}'] - df[f'Actual_{col}'].mean()) ** 2)
+            r2 = 1 - (ss_res / ss_tot)
+            st.write(f"### 📌 {col} Depth")
             st.metric("MAE", f"{mae:.4f}")
             st.metric("RMSE", f"{rmse:.4f}")
             st.metric("R²", f"{r2:.4f}")
-
-# 8. Visualize Error Metrics
-elif mode == "Visualize Error Metrics":
-    file = st.file_uploader("Upload Result File", type=["xlsx"])
-    if file:
-        df = pd.read_excel(file)
-        df['Date'] = pd.to_datetime(df['Date'])
-        df = round_df(df)
-        for col in ['Te03m', 'Te30m', 'Te50m']:
-            for metric in ['SE', 'MAPE']:
-                col_name = f"{metric}_{col}"
-                if col_name in df.columns:
-                    fig = plot_metric(df, col_name, f"{metric} for {col}")
-                    st.plotly_chart(fig, use_container_width=True)
