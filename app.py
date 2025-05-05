@@ -1,17 +1,32 @@
+# ============================================================
+# FULL STREAMLIT DASHBOARD FOR OFFSHORE TEMPERATURE FORECAST
+# ============================================================
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from io import BytesIO
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import io
+import tensorflow as tf
+import plotly.express as px
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from datetime import timedelta
 
+# --- Page Setup ---
 st.set_page_config(page_title="OFFSHORE TEMPERATURE FORECAST", layout="wide")
 
-st.markdown(
-    "<h1 style='text-align: center; color: #FFFAFA;'>🧰 OFFSHORE TEMPERATURE FORECAST</h1>",
-    unsafe_allow_html=True
-)
+# --- Custom UI Styling ---
+st.markdown("""
+<style>
+    .main, .block-container { background-color: #417C7B !important; }
+    h1 { color: #FFFAFA !important; font-size: 40px; font-weight: bold; }
+    .stRadio > div { font-size: 18px !important; color: white; }
+</style>
+""", unsafe_allow_html=True)
 
+# --- Title ---
+st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
+
+# --- Mode Selection ---
 mode = st.sidebar.radio("Choose your desired mode:", [
     "Prediction and Comparison with Given Actual Value",
     "Future Forecasting Only",
@@ -23,111 +38,160 @@ mode = st.sidebar.radio("Choose your desired mode:", [
     "Visualize Error Metrics"
 ])
 
-uploaded_file = st.file_uploader("Upload Excel result file", type=["xlsx"])
+# --- Model Loading ---
+@st.cache_resource
+def load_model():
+    return tf.keras.models.load_model("deep_lstm_checkpoint.keras")
 
-def round_df(df):
+model = load_model()
+
+# --- Helper Functions ---
+def clean_and_round(df):
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
     return df.round(2)
 
-def plot_styled_chart(df, y1, y2, title, y_label, legend1, legend2):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df['Date'], y=df[y1],
-        mode='lines', name=legend1,
-        line=dict(color='blue', width=4),
-        hovertemplate=f'{legend1}: %{{y:.2f}}<extra></extra>'
-    ))
-    fig.add_trace(go.Scatter(
-        x=df['Date'], y=df[y2],
-        mode='lines', name=legend2,
-        line=dict(color='red', width=4),
-        hovertemplate=f'{legend2}: %{{y:.2f}}<extra></extra>'
-    ))
+def forecast_temperature(data, lookback=504, forecast_steps=168):
+    values = data[['Te03m', 'Te30m', 'Te50m']].values
+    mean = values.mean(axis=0)
+    std = values.std(axis=0)
+    scaled = (values - mean) / std
+    input_seq = scaled[-lookback:].reshape(1, lookback, 3)
+    preds = []
+
+    for _ in range(forecast_steps):
+        pred = model.predict(input_seq, verbose=0)
+        preds.append(pred[0])
+        input_seq = np.append(input_seq[:, 1:, :], pred.reshape(1, 1, 3), axis=1)
+
+    unscaled = np.array(preds) * std + mean
+    forecast_dates = pd.date_range(start=data['Date'].iloc[-1] + timedelta(hours=1), periods=forecast_steps, freq='H')
+    forecast_df = pd.DataFrame(unscaled, columns=['Te03m', 'Te30m', 'Te50m'])
+    forecast_df.insert(0, 'Date', forecast_dates)
+    return forecast_df.round(2)
+
+def plot_interactive(df, x_col, y_cols, title, y_title, filename):
+    fig = px.line(df, x=x_col, y=y_cols, title=title, labels={"value": y_title, "variable": "Legend"})
     fig.update_layout(
-        title=title,
-        xaxis_title="Date",
-        yaxis_title=y_label,
-        font=dict(family="Times New Roman", size=24, color="black"),
-        hoverlabel=dict(font=dict(color='red', size=20, family="Times New Roman")),
         plot_bgcolor='white',
         paper_bgcolor='white',
+        font=dict(family="Times New Roman", size=24, color='black'),
+        title_font=dict(size=28, color='black'),
+        hoverlabel=dict(bgcolor='white', font_size=20, font_family="Times New Roman", font_color='red'),
         margin=dict(l=60, r=60, t=60, b=60),
-        xaxis=dict(showgrid=True, tickangle=-45, tickfont=dict(size=18, color='black')),
-        yaxis=dict(showgrid=True, tickfont=dict(size=18, color='black')),
-        legend=dict(font=dict(size=18)),
-        shapes=[{
-            "type": "rect",
-            "xref": "paper", "yref": "paper",
-            "x0": 0, "y0": 0, "x1": 1, "y1": 1,
-            "line": {"color": "black", "width": 2}
-        }]
     )
-    return fig
+    fig.update_traces(line=dict(width=4), hovertemplate='%{y:.2f}')
+    fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+    fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
 
-def download_chart(fig, filename):
-    img_bytes = fig.to_image(format="png", engine="kaleido", width=1200, height=600)
-    st.download_button(
-        label=f"📥 Download {filename}.png",
-        data=img_bytes,
-        file_name=f"{filename}.png",
-        mime="image/png"
-    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.download_button(f"📥 Download {filename}", fig.to_image(format="png", engine="kaleido"), file_name=filename, mime="image/png")
 
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.replace([np.inf, -np.inf], np.nan).dropna()
-    df = round_df(df)
-    st.subheader("📋 Preview of Uploaded Data")
-    st.dataframe(df.head())
+# ========== MODE HANDLING ==========
 
-    if mode == "Visualize Actual vs Predicted":
-        for depth in ['Te03m', 'Te30m', 'Te50m']:
-            a, p = f'Actual_{depth}', f'Predicted_{depth}'
-            if a in df.columns and p in df.columns:
-                fig = plot_styled_chart(df, a, p,
-                    f"Actual vs Predicted for {depth} Temperature", "Temperature (°C)", a, p)
-                st.plotly_chart(fig, use_container_width=True)
-                download_chart(fig, f"actual_vs_predicted_{depth}")
+# 1. Prediction and Comparison with Given Actual Value
+if mode == "Prediction and Comparison with Given Actual Value":
+    file = st.file_uploader("Upload Excel data (with actuals)", type=['xlsx'], key="compare_actual")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        forecast_df = forecast_temperature(df)
+        comparison_df = pd.merge(df[['Date', 'Te03m', 'Te30m', 'Te50m']], forecast_df, on='Date', how='inner')
+        st.write("### 🔍 Predicted vs Actual Sample")
+        st.dataframe(comparison_df.head())
 
-    elif mode == "Visualize Accuracy":
-        for depth in ['Te03m', 'Te30m', 'Te50m']:
-            a, p = f'Actual_{depth}', f'Predicted_{depth}'
-            acc_col = f'Accuracy_{depth}'
-            if a in df.columns and p in df.columns:
-                df[acc_col] = 100 - (np.abs(df[a] - df[p]) / df[a] * 100)
-                fig = plot_styled_chart(df, acc_col, acc_col,
-                    f"Accuracy for {depth} Temperature", f"Accuracy (%)", acc_col, acc_col)
-                st.plotly_chart(fig, use_container_width=True)
-                download_chart(fig, f"accuracy_{depth}")
+# 2. Future Forecasting Only
+elif mode == "Future Forecasting Only":
+    file = st.file_uploader("Upload temperature file (CSV or Excel)", type=['csv', 'xlsx'], key="forecast")
+    if file:
+        df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        forecast_df = forecast_temperature(df)
+        st.write("### 📈 Future Forecast")
+        st.dataframe(forecast_df.head())
+        csv = forecast_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Forecast", csv, file_name="forecast.csv", mime="text/csv")
 
-    elif mode == "Visualize Error Metrics":
-        for depth in ['Te03m', 'Te30m', 'Te50m']:
-            a, p = f'Actual_{depth}', f'Predicted_{depth}'
-            se_col, mape_col = f'SE_{depth}', f'MAPE_{depth}'
-            if a in df.columns and p in df.columns:
-                df[se_col] = (df[a] - df[p]) ** 2
-                df[mape_col] = (np.abs(df[a] - df[p]) / df[a]) * 100
-                fig1 = plot_styled_chart(df, se_col, se_col,
-                    f"Squared Error for {depth}", "Squared Error", se_col, se_col)
-                st.plotly_chart(fig1, use_container_width=True)
-                download_chart(fig1, f"squared_error_{depth}")
-                fig2 = plot_styled_chart(df, mape_col, mape_col,
-                    f"MAPE for {depth}", "MAPE (%)", mape_col, mape_col)
-                st.plotly_chart(fig2, use_container_width=True)
-                download_chart(fig2, f"mape_{depth}")
+# 3. Compare Predicted with Actual
+elif mode == "Compare Predicted with Actual":
+    file = st.file_uploader("Upload Excel file with predicted and actual", type=['xlsx'], key="compare")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        st.dataframe(df.head())
 
-    elif mode == "Calculate Overall Metrics":
-        st.subheader("📈 Overall Error Metrics")
-        for depth in ['Te03m', 'Te30m', 'Te50m']:
-            a, p = f'Actual_{depth}', f'Predicted_{depth}'
-            if a in df.columns and p in df.columns:
-                rmse = mean_squared_error(df[a], df[p], squared=False)
-                mae = mean_absolute_error(df[a], df[p])
-                r2 = r2_score(df[a], df[p])
-                st.markdown(f"### {depth}")
-                st.markdown(f"- RMSE: **{rmse:.4f}**")
-                st.markdown(f"- MAE: **{mae:.4f}**")
-                st.markdown(f"- R² Score: **{r2:.4f}**")
+# 4. Visualize Actual vs Predicted
+elif mode == "Visualize Actual vs Predicted":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis1")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            if f'Actual_{col}' in df.columns and f'Predicted_{col}' in df.columns:
+                plot_interactive(df, 'Date', [f'Actual_{col}', f'Predicted_{col}'],
+                                 f"Actual vs Predicted for {col} Temperature", "Temperature (°C)",
+                                 f"{col}_actual_vs_predicted.png")
 
-    else:
-        st.info(f"Mode '{mode}' is under development or unchanged. Please upload data to proceed.")
+# 5. Visualize Accuracy
+elif mode == "Visualize Accuracy":
+    file = st.file_uploader("Upload accuracy file", type=['xlsx'], key="vis_accuracy")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            acc_col = f'Accuracy_{col}'
+            if acc_col in df.columns:
+                plot_interactive(df, 'Date', [acc_col],
+                                 f"Accuracy for {col} Temperature", f"Accuracy_{col} (%)",
+                                 f"{col}_accuracy.png")
+
+# 6. Compute SE and MAPE for Each Row
+elif mode == "Compute SE and MAPE for Each Row":
+    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="se_mape")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            actual = f'Actual_{col}'
+            predicted = f'Predicted_{col}'
+            if actual in df.columns and predicted in df.columns:
+                df[f'Squared_Error_{col}'] = (df[actual] - df[predicted])**2
+                df[f'MAPE_{col}'] = np.abs((df[actual] - df[predicted]) / df[actual]) * 100
+        st.write("### ✅ Computed SE & MAPE")
+        st.dataframe(df.head())
+
+# 7. Calculate Overall Metrics
+elif mode == "Calculate Overall Metrics":
+    file = st.file_uploader("Upload Excel file with results", type=['xlsx'], key="metrics")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        st.write("### 📊 Overall Metrics")
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            actual = f'Actual_{col}'
+            predicted = f'Predicted_{col}'
+            if actual in df.columns and predicted in df.columns:
+                rmse = mean_squared_error(df[actual], df[predicted], squared=False)
+                mae = mean_absolute_error(df[actual], df[predicted])
+                st.write(f"**{col}** — RMSE: {rmse:.2f} °C, MAE: {mae:.2f} °C")
+
+# 8. Visualize Error Metrics
+elif mode == "Visualize Error Metrics":
+    file = st.file_uploader("Upload Excel file with error metrics", type=['xlsx'], key="error_visual")
+    if file:
+        df = pd.read_excel(file)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = clean_and_round(df)
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            for metric in ['Squared_Error', 'MAPE']:
+                m_col = f'{metric}_{col}'
+                if m_col in df.columns:
+                    plot_interactive(df, 'Date', [m_col],
+                                     f"{metric.replace('_', ' ')} for {col}", metric, f"{col}_{metric}.png")
