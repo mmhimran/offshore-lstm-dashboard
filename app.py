@@ -19,37 +19,36 @@ st.set_page_config(
 # Custom styling for PETRONAS look
 st.markdown("""
     <style>
-        /* Set darker background */
+        /* Change full page background */
         .main, .block-container, .css-18e3th9 {
             background-color: #417C7B !important;
         }
 
-        /* Sidebar background color */
-        section[data-testid="stSidebar"] {
-            background-color: #417C7B !important;
-        }
-
-        /* Sidebar radio label text */
-        .css-1cpxqw2 {
-            font-size: 22px !important;
+        /* Text color and sidebar font size */
+        .css-1d391kg, .css-1cpxqw2 {
             color: #673AB7 !important;
-            font-weight: bold !important;
+            font-size: 18px !important;
         }
 
-        /* Sidebar title "Choose your desired mode" */
+        /* Sidebar header (mode title) */
         .css-10trblm {
-            font-size: 24px !important;
             color: #673AB7 !important;
+            font-size: 22px !important;
             font-weight: bold !important;
         }
 
-        /* All headings in main area */
+        /* Sidebar radio labels */
+        .css-1cpxqw2 {
+            font-size: 18px !important;
+        }
+
+        /* Main title */
         h1, h2, h3, h4, h5, h6 {
             color: #673AB7 !important;
         }
 
-        /* File uploader text */
-        .css-1x8cf1d, .css-qrbaxs {
+        /* Upload widget text */
+        .css-1x8cf1d {
             color: #673AB7 !important;
         }
     </style>
