@@ -89,9 +89,9 @@ def compare_data(actual_df, predicted_df):
 # ========================== UI ==============================
 st.title("🧰 OFFSHORE TEMPERATURE FORECAST")
 mode = st.sidebar.radio("Choose your desired mode:", [
-    "Prediction and Comparison with Actual",
-    "Forecasting Only",
-    "Compare xlsx file",
+    "Prediction and Comparison with Given Actual Value",
+    "Future Forecasting Only",
+    "Compare Predicted with Actual",
     "Visualize Actual vs Predicted",
     "Visualize Accuracy"
 ])
