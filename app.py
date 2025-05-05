@@ -119,7 +119,7 @@ if mode == "Prediction and Comparison with Given Actual Value":
         predicted = predicted[['Date', 'Pred_Te03m', 'Pred_Te30m', 'Pred_Te50m']].reset_index(drop=True)
         merged = pd.merge(actual_df, predicted, on='Date')
         result = compare_data(actual_df, predicted)
-        st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="comparison_results.xlsx")
+        st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="Results_504+168.xlsx")
 
 # === 2. Forecasting Only ===
 elif mode == "Future Forecasting Only":
@@ -130,7 +130,7 @@ elif mode == "Future Forecasting Only":
         forecast = forecast_temperature(df)
         st.subheader("📋 Uploaded Data")
         st.dataframe(df.tail())
-        st.download_button("📥 Download Forecast", generate_excel(forecast), file_name="forecast_results.xlsx")
+        st.download_button("📥 Download Forecast", generate_excel(forecast), file_name="Result_Prediction_168.xlsx")
 
 # === 3. Compare XLSX ===
 elif mode == "Compare Predicted with Actual":
@@ -143,7 +143,7 @@ elif mode == "Compare Predicted with Actual":
         predicted_df['Date'] = pd.to_datetime(predicted_df['Date'])
         predicted_df.rename(columns=lambda x: f'Pred_{x}' if x != 'Date' else x, inplace=True)
         result = compare_data(actual_df, predicted_df)
-        st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="comparison_only.xlsx")
+        st.download_button("📥 Download Comparison Results", generate_excel(result), file_name="Result_Comparison.xlsx")
 
 # === 4. Visualize Actual vs Predicted ===
 elif mode == "Visualize Actual vs Predicted":
@@ -212,7 +212,7 @@ elif mode == "Compute SE and MAPE for Each Row":
         st.download_button(
             "📥 Download Result with SE and MAPE",
             generate_excel(result),
-            file_name="rowwise_metrics.xlsx"
+            file_name="Result_SE_MAPE.xlsx"
         )
 
 # === 7. Calculate Overall Metrics ===
