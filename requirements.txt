@@ -11,3 +11,10 @@ scikit-learn
 matplotlib
 openpyxl
 XlsxWriter
+streamlit
+tensorflow
+scikit-learn
+pandas
+openpyxl
+matplotlib
+plotly
