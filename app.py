@@ -19,24 +19,41 @@ st.set_page_config(
 # Custom styling for PETRONAS look
 st.markdown("""
     <style>
-        .main {
-            background-color: #F4FCFD;
+        /* Change full page background */
+        .main, .block-container, .css-18e3th9 {
+            background-color: #5B9E9D !important;
         }
-        .css-18e3th9 {
-            background-color: #0FB7A8 !important;
-            color: white;
+
+        /* Text color and sidebar font size */
+        .css-1d391kg, .css-1cpxqw2 {
+            color: #673AB7 !important;
+            font-size: 18px !important;
         }
-        .css-1d391kg {
-            background-color: #F4FCFD !important;
+
+        /* Sidebar header (mode title) */
+        .css-10trblm {
+            color: #673AB7 !important;
+            font-size: 22px !important;
+            font-weight: bold !important;
         }
-        .block-container {
-            padding: 2rem;
+
+        /* Sidebar radio labels */
+        .css-1cpxqw2 {
+            font-size: 18px !important;
         }
+
+        /* Main title */
         h1, h2, h3, h4, h5, h6 {
-            color: #0FB7A8;
+            color: #673AB7 !important;
+        }
+
+        /* Upload widget text */
+        .css-1x8cf1d {
+            color: #673AB7 !important;
         }
     </style>
 """, unsafe_allow_html=True)
+
 
 # Load LSTM model
 @st.cache_resource
