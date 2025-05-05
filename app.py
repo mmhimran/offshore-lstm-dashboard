@@ -181,6 +181,7 @@ elif mode == "Visualize Accuracy":
             plt.legend(fontsize=20)
             plt.grid(True)
             st.pyplot(plt)
+            
 # === 6. Compute SE and MAPE for Each Row ===
 elif mode == "Compute SE and MAPE for Each Row":
     file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="se_mape")
@@ -188,15 +189,29 @@ elif mode == "Compute SE and MAPE for Each Row":
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
 
-        for col in ['Te03m', 'Te30m', 'Te50m']:
-            df[f'SE_{col}'] = (df[f'Actual_{col}'] - df[f'Predicted_{col}'])**2
-            df[f'MAPE_{col}'] = np.abs((df[f'Actual_{col}'] - df[f'Predicted_{col}']) / df[f'Actual_{col}']) * 100
+        result = pd.DataFrame()
+        result['Date'] = df['Date']
 
-        st.dataframe(df.head())
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            actual_col = f'Actual_{col}'
+            pred_col = f'Predicted_{col}'
+            error_col = f'Error_{col}'
+            acc_col = f'Accuracy_{col}'
+            se_col = f'SE_{col}'
+            mape_col = f'MAPE_{col}'
+
+            result[actual_col] = df[actual_col]
+            result[pred_col] = df[pred_col]
+            result[error_col] = df[actual_col] - df[pred_col]
+            result[acc_col] = 100 - (abs(result[error_col]) / df[actual_col] * 100)
+            result[se_col] = (result[error_col]) ** 2
+            result[mape_col] = abs(result[error_col] / df[actual_col]) * 100
+
+        st.dataframe(result.head())
 
         st.download_button(
             "📥 Download Result with SE and MAPE",
-            generate_excel(df),
+            generate_excel(result),
             file_name="rowwise_metrics.xlsx"
         )
 
@@ -226,16 +241,29 @@ elif mode == "Visualize Error Metrics":
         df = pd.read_excel(file)
         df['Date'] = pd.to_datetime(df['Date'])
 
-        for metric in ['SE', 'MAPE']:
-            for col in ['Te03m', 'Te30m', 'Te50m']:
-                metric_col = f'{metric}_{col}'
-                if metric_col in df.columns:
-                    plt.figure(figsize=(14, 6))
-                    plt.plot(df['Date'], df[metric_col], linewidth=4)
-                    plt.title(f"{metric} for {col} Temperature", fontsize=30, fontweight='bold', fontname="Times New Roman")
-                    plt.xlabel("Date", fontsize=25, fontname="Times New Roman")
-                    plt.ylabel(f"{metric} Value", fontsize=25, fontname="Times New Roman")
-                    plt.xticks(fontsize=20, fontname="Times New Roman", rotation=30)
-                    plt.yticks(fontsize=20, fontname="Times New Roman")
-                    plt.grid(True)
-                    st.pyplot(plt)
+        for col in ['Te03m', 'Te30m', 'Te50m']:
+            se_col = f'SE_{col}'
+            mape_col = f'MAPE_{col}'
+
+            if se_col in df.columns:
+                plt.figure(figsize=(14, 6))
+                plt.plot(df['Date'], df[se_col], linewidth=4)
+                plt.title(f"Squared Error for {col}", fontsize=30, fontweight='bold', fontname="Times New Roman")
+                plt.xlabel("Date", fontsize=25, fontname="Times New Roman")
+                plt.ylabel("Squared Error", fontsize=25, fontname="Times New Roman")
+                plt.xticks(fontsize=20, fontname="Times New Roman", rotation=30)
+                plt.yticks(fontsize=20, fontname="Times New Roman")
+                plt.grid(True)
+                st.pyplot(plt)
+
+            if mape_col in df.columns:
+                plt.figure(figsize=(14, 6))
+                plt.plot(df['Date'], df[mape_col], linewidth=4)
+                plt.title(f"MAPE for {col}", fontsize=30, fontweight='bold', fontname="Times New Roman")
+                plt.xlabel("Date", fontsize=25, fontname="Times New Roman")
+                plt.ylabel("MAPE (%)", fontsize=25, fontname="Times New Roman")
+                plt.xticks(fontsize=20, fontname="Times New Roman", rotation=30)
+                plt.yticks(fontsize=20, fontname="Times New Roman")
+                plt.grid(True)
+                st.pyplot(plt)
+
