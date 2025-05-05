@@ -18,3 +18,12 @@ pandas
 openpyxl
 matplotlib
 plotly
+streamlit==1.32.2
+pandas
+numpy
+tensorflow
+openpyxl
+xlsxwriter
+scikit-learn
+plotly
+kaleido
