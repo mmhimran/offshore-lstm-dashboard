@@ -19,15 +19,15 @@ st.markdown("""
         }
         .css-1d391kg, .css-1cpxqw2 {
             color: #FFFAFA !important;
-            font-size: 22px !important;
+            font-size: 26px !important;
         }
         .css-10trblm {
             color: #673AB7 !important;
-            font-size: 22px !important;
+            font-size: 26px !important;
             font-weight: bold !important;
         }
         .css-1cpxqw2 {
-            font-size: 22px !important;
+            font-size: 26px !important;
         }
         h1, h2, h3, h4, h5, h6 {
             color: #FFFAFA !important;
