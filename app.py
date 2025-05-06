@@ -132,42 +132,19 @@ elif mode == "Compare Predicted with Actual":
 # ------------------- CUSTOMIZED VISUALIZATION BLOCKS -------------------
 
 def plot_colored_line(df, x, y, title):
-    # Check if all y columns exist
-    for col in y:
-        if col not in df.columns:
-            st.error(f"Column '{col}' not found in the uploaded file.")
-            return None
-
     fig = px.line(df, x=x, y=y,
-                  labels={y[0]: 'Actual', y[1]: 'Predicted', 'value': 'Temperature (°C)', 'variable': 'Legend'},
+                  labels={'value': 'Temperature (°C)', 'variable': 'Legend'},
                   title=title,
                   color_discrete_sequence=['blue', 'red'])
 
     fig.update_traces(line=dict(width=4), hovertemplate='<b>%{y:.2f}</b>', hoverlabel=dict(font_color='red'))
-
     fig.update_layout(
         font=dict(family="Times New Roman", size=24, color="black"),
-        title_font=dict(size=30, family="Times New Roman", color="black"),
+        title_font=dict(size=28, family="Times New Roman", color="black"),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        xaxis=dict(
-            title="Date",
-            titlefont=dict(size=24, family="Times New Roman", color="black"),
-            tickfont=dict(size=20, color='black'),
-            showgrid=True
-        ),
-        yaxis=dict(
-            title="Temperature (°C)",
-            titlefont=dict(size=24, family="Times New Roman", color="black"),
-            tickfont=dict(size=20, color='black'),
-            showgrid=True
-        ),
-        legend=dict(
-            font=dict(family="Times New Roman", size=20, color="black"),
-            bgcolor='rgba(255,255,255,0.8)',
-            bordercolor='black',
-            borderwidth=1
-        ),
+        xaxis=dict(showgrid=True, tickfont=dict(size=20, color='black'), title_font=dict(size=24)),
+        yaxis=dict(showgrid=True, tickfont=dict(size=20, color='black'), title_font=dict(size=24)),
         margin=dict(l=50, r=50, t=80, b=50),
         hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman")
     )
