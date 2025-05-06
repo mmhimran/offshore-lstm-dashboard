@@ -86,8 +86,7 @@ mode = st.sidebar.radio("Choose your desired mode:", [
     "Visualize Accuracy",
     "Compute SE and MAPE for Each Row",
     "Calculate Overall Metrics",
-    "Visualize Error Metrics",
-    "Visualize Actual vs Predicted (1 Decimal)"
+    "Visualize Error Metrics"
 
 ])
 
@@ -230,36 +229,4 @@ if mode == "Calculate Overall Metrics":
             st.metric("RMSE", f"{rmse:.4f}")
             st.metric("R²", f"{r2:.4f}")
             
-if mode == "Visualize Actual vs Predicted (1 Decimal)":
-    file = st.file_uploader("Upload Excel result file", type=['xlsx'], key="vis1_decimal")
-    if file:
-        df = pd.read_excel(file)
-        df['Date'] = pd.to_datetime(df['Date'])
 
-        # Round all temperature columns to 1 decimal
-        for col in df.columns:
-            if col.startswith('Actual_') or col.startswith('Predicted_'):
-                df[col] = df[col].round(1)
-
-        # Plot each depth
-        for col in ['Te03m', 'Te30m', 'Te50m']:
-            if f'Actual_{col}' in df.columns and f'Predicted_{col}' in df.columns:
-                fig = px.line(
-                    df,
-                    x='Date',
-                    y=[f'Actual_{col}', f'Predicted_{col}'],
-                    labels={'value': 'Temperature (°C)', 'variable': 'Legend'},
-                    title=f"Actual vs Predicted for {col} (Rounded to 1 Decimal)",
-                    color_discrete_sequence=['blue', 'red']
-                )
-                fig.update_traces(line=dict(width=4), hovertemplate='<b>%{y:.1f}</b>')
-                fig.update_layout(
-                    font=dict(family="Times New Roman", size=24, color="black"),
-                    title_font=dict(size=28, family="Times New Roman", color="black"),
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    xaxis=dict(showgrid=True, tickfont=dict(size=20), title_font=dict(size=24)),
-                    yaxis=dict(showgrid=True, tickfont=dict(size=20), title_font=dict(size=24)),
-                    hoverlabel=dict(bgcolor="white", font_size=20, font_family="Times New Roman")
-                )
-                st.plotly_chart(fig, use_container_width=True)
