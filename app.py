@@ -44,7 +44,7 @@ def generate_excel(df):
         df.to_excel(writer, index=False, sheet_name='Forecast')
     return output.getvalue()
 
-def forecast_temperature(data, lookback=504, forecast_steps=336):
+def forecast_temperature(data, lookback=504, forecast_steps=168):
     values = data[['Te03m', 'Te30m', 'Te50m']].values
     scaled = (values - values.mean(axis=0)) / values.std(axis=0)
     input_seq = scaled[-lookback:].reshape(1, lookback, 3)
